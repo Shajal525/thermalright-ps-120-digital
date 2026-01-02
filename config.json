@@ -1,0 +1,5 @@
+{
+    "update_interval": 2.0,
+    "wipe_speed": 0.01,
+    "hue_step": 0.02
+}
