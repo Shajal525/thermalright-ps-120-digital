@@ -1,5 +1,6 @@
 {
     "update_interval": 2.0,
-    "wipe_speed": 0.01,
-    "hue_step": 0.02
+    "wipe_speed": 0.02,
+    "hue_step": 0.04,
+    "brightness": 0.5
 }

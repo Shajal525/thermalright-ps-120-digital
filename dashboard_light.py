@@ -7,18 +7,19 @@ import json
 import os
 
 # --- CONFIGURATION PATH ---
-CONFIG_FILE = "/home/shajal/.local/share/digital_thermal_right_lcd/config.json"
+CONFIG_FILE = "/opt/thermalright_led/config.json"
 
 # HARDWARE CONSTANTS
 VENDOR_ID = 0x0416
 PRODUCT_ID = 0x8001
 NUMBER_OF_LEDS = 84
 
-# DEFAULT SETTINGS (Used if config file is broken)
+# DEFAULT SETTINGS
 settings = {
     "update_interval": 2.0,
     "wipe_speed": 0.01,
-    "hue_step": 0.02
+    "hue_step": 0.02,
+    "brightness": 1.0
 }
 
 def load_config():
@@ -28,12 +29,28 @@ def load_config():
         if os.path.exists(CONFIG_FILE):
             with open(CONFIG_FILE, 'r') as f:
                 new_settings = json.load(f)
-                # Update keys safely
-                for key in settings:
-                    if key in new_settings:
-                        settings[key] = new_settings[key]
+                settings.update(new_settings)
     except Exception as e:
-        pass # Keep using old settings if file read fails
+        print(f"Config Load Error: {e}")
+
+def apply_brightness(hex_color, brightness):
+    """dims a hex color string by the brightness factor"""
+    # Parse Hex
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    
+    # Apply dimming
+    r = int(r * brightness)
+    g = int(g * brightness)
+    b = int(b * brightness)
+    
+    # Clamp to 0-255 just in case
+    r = max(0, min(r, 255))
+    g = max(0, min(g, 255))
+    b = max(0, min(b, 255))
+    
+    return f"{r:02X}{g:02X}{b:02X}"
 
 # --- MAPPING COORDINATES (0.0 = Bottom Right, 1.0 = Top Left) ---
 led_pos_coords = [0.0] * NUMBER_OF_LEDS
@@ -113,9 +130,7 @@ def get_cpu_temp():
     return 0
 
 def main():
-    print("Starting Paint Fill Dashboard (Live Config)...")
-    
-    # Load config initially
+    print("Starting Dashboard (Brightness Support)...")
     load_config()
     
     last_data_time = 0
@@ -137,7 +152,7 @@ def main():
             while True:
                 now = time.time()
                 
-                # 1. CHECK CONFIG (Every 2 seconds)
+                # 1. CHECK CONFIG
                 if now - last_config_check > 2.0:
                     load_config()
                     last_config_check = now
@@ -152,16 +167,15 @@ def main():
                     except: cached_speed = 0
                     last_data_time = now
                     
-                    # Update Mask
                     leds_on_mask = [False] * NUMBER_OF_LEDS
                     
-                    # Temp
+                    # Map Digits
                     t_str = f"{min(int(cached_temp), 199): >3}"
                     for i, c in enumerate(t_str):
                         if c in digit_shapes:
                             for idx, on in enumerate(digit_shapes[c]):
                                 if on: leds_on_mask[temp_digits_indices[i][idx]] = True
-                    # Usage
+                    
                     u_val = int(cached_usage)
                     if cached_usage > 0 and u_val == 0: u_val = 1
                     u_str = f"{min(u_val, 99):02}"
@@ -169,13 +183,13 @@ def main():
                         if c in digit_shapes:
                             for idx, on in enumerate(digit_shapes[c]):
                                 if on: leds_on_mask[usage_digits_indices[i][idx]] = True
-                    # Speed
+                    
                     s_str = f"{min(cached_speed, 9999): >4}"
                     for i, c in enumerate(s_str):
                         if c in digit_shapes:
                             for idx, on in enumerate(digit_shapes[c]):
                                 if on: leds_on_mask[speed_digits_indices[i][idx]] = True
-                    # Icons
+                    
                     u_lit = int((cached_usage / 100.0) * len(bar_usage_indices))
                     for i in range(u_lit): leds_on_mask[bar_usage_indices[i]] = True
                     leds_on_mask[ICON_PERCENT] = True
@@ -183,30 +197,34 @@ def main():
                     leds_on_mask[ICON_CPU] = True
                     leds_on_mask[ICON_CELSIUS] = True
 
-                # 3. UPDATE ANIMATION
+                # 3. ANIMATION
                 wipe_progress += settings["wipe_speed"]
-                
                 if wipe_progress >= 1.2: 
                     wipe_progress = 0.0
                     current_hue = target_hue
                     target_hue = (target_hue + settings["hue_step"]) % 1.0
 
                 r1, g1, b1 = colorsys.hsv_to_rgb(current_hue, 1.0, 1.0)
-                color_old = f"{int(r1*255):02X}{int(g1*255):02X}{int(b1*255):02X}"
+                # Calculate Base colors (Full Brightness)
+                base_color_old = f"{int(r1*255):02X}{int(g1*255):02X}{int(b1*255):02X}"
                 
                 r2, g2, b2 = colorsys.hsv_to_rgb(target_hue, 1.0, 1.0)
-                color_new = f"{int(r2*255):02X}{int(g2*255):02X}{int(b2*255):02X}"
+                base_color_new = f"{int(r2*255):02X}{int(g2*255):02X}{int(b2*255):02X}"
 
-                # 4. ASSIGN COLORS
+                # 4. APPLY BRIGHTNESS
+                dim_color_old = apply_brightness(base_color_old, settings["brightness"])
+                dim_color_new = apply_brightness(base_color_new, settings["brightness"])
+
+                # 5. ASSIGN
                 colors = ["000000"] * NUMBER_OF_LEDS
                 for i in range(NUMBER_OF_LEDS):
                     if leds_on_mask[i]:
                         if wipe_progress >= led_pos_coords[i]:
-                            colors[i] = color_new
+                            colors[i] = dim_color_new
                         else:
-                            colors[i] = color_old
+                            colors[i] = dim_color_old
 
-                sys.stdout.write(f"\rTemp: {int(cached_temp)}C | Speed: {cached_speed} MHz | Progress: {int(wipe_progress*100)}% | Color: #{color_new}   ")
+                sys.stdout.write(f"\rTemp: {int(cached_temp)}C | Speed: {cached_speed} | Bri: {settings['brightness']} | Color: #{dim_color_new}   ")
                 sys.stdout.flush()
 
                 # SEND
