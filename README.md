@@ -14,7 +14,7 @@ A custom Python driver for Thermalright Digital CPU Coolers (e.g., Phantom Spiri
 1.  **Clone the repository:**
     (Requires root to write to /opt)
     
-        sudo git clone https://github.com/YOUR_USERNAME/REPO_NAME.git /opt/thermalright_led
+        sudo git clone git@github.com:Shajal525/thermalright-ps-120-digital.git /opt/thermalright_led
 
 2.  **Navigate to the directory:**
     
