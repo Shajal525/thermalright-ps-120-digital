@@ -11,15 +11,20 @@ A custom Python driver for Thermalright Digital CPU Coolers (e.g., Phantom Spiri
 
 ## Installation
 
-1.  **Navigate to the directory:**
+1.  **Clone the repository:**
+    (Requires root to write to /opt)
+    
+        sudo git clone https://github.com/YOUR_USERNAME/REPO_NAME.git /opt/thermalright_led
+
+2.  **Navigate to the directory:**
     
         cd /opt/thermalright_led
 
-2.  **Create a virtual environment:**
+3.  **Create a virtual environment:**
     
         python3 -m venv .venv
 
-3.  **Install dependencies:**
+4.  **Install dependencies:**
     
         sudo .venv/bin/pip install -r requirements.txt
 
