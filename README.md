@@ -22,7 +22,7 @@ A custom Python driver for Thermalright Digital CPU Coolers (e.g., Phantom Spiri
 
 3.  **Create a virtual environment:**
     
-        sudo apt install python3.13-venv
+        sudo apt install python3.13-venv, libhidapi-hidraw0
         python3 -m venv .venv
 
 4.  **Install dependencies:**
